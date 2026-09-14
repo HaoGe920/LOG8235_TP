@@ -35,7 +35,28 @@ void ASDTAIController::Tick(float deltaTime)
 
             // Find the two directions parallel to the wall
 
-            FVector wallDirection = FVector::CrossProduct(FVector::UpVector, hitResult.ImpactNormal).GetSafeNormal();
+            FVector wallDirection;
+
+            if (hitResult.GetActor() &&
+                hitResult.GetActor()->GetName().Contains(TEXT("BP_DeathFloor")))
+            {
+                // Death floor detected.
+                // Pick a direction perpendicular to the current movement.
+                wallDirection =
+                    FVector::CrossProduct(
+                        FVector::UpVector,
+                        currentDirection
+                    ).GetSafeNormal();
+            }
+            else
+            {
+                // Normal wall detection.
+                wallDirection =
+                    FVector::CrossProduct(
+                        FVector::UpVector,
+                        hitResult.ImpactNormal
+                    ).GetSafeNormal();
+            }
 
             FVector oppositeWallDirection = -wallDirection;
 
@@ -200,51 +221,180 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
         return true;
     }
 
-
     // Get the pawn's collision capsule.
-    UCapsuleComponent* capsule = pawn->FindComponentByClass<UCapsuleComponent>();
+    UCapsuleComponent* capsule =
+        pawn->FindComponentByClass<UCapsuleComponent>();
+
     if (!capsule)
     {
         return true;
     }
 
-
     // Get the real scaled dimensions of the pawn.
-    float capsuleRadius = capsule->GetScaledCapsuleRadius() * m_sweepScale;
+    float capsuleRadius =
+        capsule->GetScaledCapsuleRadius() * m_sweepScale;
 
-    float capsuleHalfHeight = capsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
-
+    float capsuleHalfHeight =
+        capsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
 
     // Start at the pawn's current position.
     FVector start = pawn->GetActorLocation();
+
     FVector normalizedDirection = direction.GetSafeNormal();
 
-
-    FVector end = start + normalizedDirection * detectionDistance;
-
+    FVector end =
+        start + normalizedDirection * detectionDistance;
 
     // Create a capsule matching the pawn.
-    FCollisionShape collisionShape = FCollisionShape::MakeCapsule(capsuleRadius, capsuleHalfHeight);
+    FCollisionShape collisionShape =
+        FCollisionShape::MakeCapsule(
+            capsuleRadius,
+            capsuleHalfHeight
+        );
 
     FCollisionQueryParams queryParams;
     queryParams.AddIgnoredActor(pawn);
 
-    // Sweep the capsule through space.
+    // ---------------------------------------------------------
+    // WALL DETECTION
+    // ---------------------------------------------------------
 
-    bool hasHit = GetWorld()->SweepSingleByChannel(hitResult, start, end, FQuat::Identity, ECC_Visibility, collisionShape, queryParams);
+    bool hasHit = GetWorld()->SweepSingleByChannel(
+        hitResult,
+        start,
+        end,
+        FQuat::Identity,
+        ECC_Visibility,
+        collisionShape,
+        queryParams
+    );
 
-    // Debug visualization
+    // Debug visualization for wall detection.
+    FColor debugColor =
+        hasHit ? FColor::Red : FColor::Green;
 
-    FColor debugColor = hasHit ? FColor::Red : FColor::Green;
+    DrawDebugLine(
+        GetWorld(),
+        start,
+        end,
+        debugColor,
+        false,
+        0.0f,
+        0,
+        2.0f
+    );
 
-    // Center path of the sweep.
-    DrawDebugLine(GetWorld(), start, end, debugColor, false, 0.0f, 0, 2.0f);
+    DrawDebugCapsule(
+        GetWorld(),
+        end,
+        capsuleHalfHeight,
+        capsuleRadius,
+        FQuat::Identity,
+        debugColor,
+        false,
+        0.0f,
+        0,
+        1.0f
+    );
 
-    // Show the capsule at the destination.
-    DrawDebugCapsule(GetWorld(), end, capsuleHalfHeight, capsuleRadius, FQuat::Identity, debugColor, false, 0.0f, 0, 1.0f);
+    if (hasHit)
+    {
+        return true;
+    }
 
+    // ---------------------------------------------------------
+    // DEATH FLOOR DETECTION
+    // ---------------------------------------------------------
 
-    return hasHit;
+    // Put the DeathFloor detection capsule ahead of the pawn.
+    FVector deathFloorStart =
+        start + normalizedDirection * detectionDistance;
+
+    // Extend the bottom of the detection capsule below
+    // the normal pawn capsule.
+    const float deathFloorExtension = 50.0f;
+
+    deathFloorStart.Z -= deathFloorExtension;
+
+    // Sweep the detection capsule downward.
+    FVector deathFloorEnd =
+        deathFloorStart;
+
+    deathFloorEnd.Z -= deathFloorExtension;
+
+    FCollisionShape deathFloorCollisionShape =
+        FCollisionShape::MakeCapsule(
+            capsuleRadius,
+            capsuleHalfHeight
+        );
+
+    TArray<FHitResult> deathFloorHits;
+
+    bool hasHitDeathFloor = GetWorld()->SweepMultiByChannel(
+        deathFloorHits,
+        deathFloorStart,
+        deathFloorEnd,
+        FQuat::Identity,
+        ECC_Visibility,
+        deathFloorCollisionShape,
+        queryParams
+    );
+
+    // Debug visualization.
+    FColor deathFloorDebugColor =
+        hasHitDeathFloor ? FColor::Red : FColor::Green;
+
+    DrawDebugLine(
+        GetWorld(),
+        deathFloorStart,
+        deathFloorEnd,
+        deathFloorDebugColor,
+        false,
+        0.0f,
+        0,
+        3.0f
+    );
+
+    DrawDebugCapsule(
+        GetWorld(),
+        deathFloorStart,
+        capsuleHalfHeight,
+        capsuleRadius,
+        FQuat::Identity,
+        deathFloorDebugColor,
+        false,
+        0.0f,
+        0,
+        2.0f
+    );
+
+    DrawDebugCapsule(
+        GetWorld(),
+        deathFloorEnd,
+        capsuleHalfHeight,
+        capsuleRadius,
+        FQuat::Identity,
+        deathFloorDebugColor,
+        false,
+        0.0f,
+        0,
+        2.0f
+    );
+
+    for (const FHitResult& hit : deathFloorHits)
+    {
+        AActor* hitActor = hit.GetActor();
+
+        if (hitActor &&
+            hitActor->GetName().Contains(TEXT("BP_DeathFloor")))
+        {
+            hitResult = hit;
+
+            return true;
+        }
+    }
+
+    return false;
 }
 
 
