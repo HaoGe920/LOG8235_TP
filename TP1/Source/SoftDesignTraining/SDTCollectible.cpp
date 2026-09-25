@@ -6,6 +6,7 @@
 ASDTCollectible::ASDTCollectible()
 {
     PrimaryActorTick.bCanEverTick = true;
+    m_FeedbackComponent = CreateDefaultSubobject<USDTPickupFeedbackComponent>(TEXT("FeedbackComponent"));
 }
 
 void ASDTCollectible::BeginPlay()
@@ -16,6 +17,11 @@ void ASDTCollectible::BeginPlay()
 void ASDTCollectible::Collect()
 {
     GetWorld()->GetTimerManager().SetTimer(m_CollectCooldownTimer, this, &ASDTCollectible::OnCooldownDone, m_CollectCooldownDuration, false);
+
+    if (m_FeedbackComponent)
+    {
+        m_FeedbackComponent->PlayFeedback();
+    }
 
     GetStaticMeshComponent()->SetVisibility(false);
 }

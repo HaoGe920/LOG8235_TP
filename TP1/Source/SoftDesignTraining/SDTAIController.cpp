@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-#include "SDTUtils.h"   
 #include "SDTAIController.h"
+#include "SDTUtils.h"   
 #include "SoftDesignTraining.h"
 
 void ASDTAIController::Tick(float deltaTime)
@@ -460,7 +460,7 @@ bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
     GetWorld()->SweepMultiByChannel(hits, start, end, FQuat::Identity, ECC_Visibility, collisionShape, queryParams);
 
     //DrawDebugLine(GetWorld(), start, end, FColor::Magenta, false, 2.0f, 0, 5.0f);
-    DrawDebugCapsule(
+    /*DrawDebugCapsule(
         GetWorld(),
         end,                    // position de la capsule (au bout de la sonde)
         capsuleHalfHeight,      // même hauteur que le corps réel
@@ -471,7 +471,7 @@ bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
         2.0f,
         0,
         1.0f
-    );
+    );*/
 
     for (const FHitResult& hit : hits)
     {

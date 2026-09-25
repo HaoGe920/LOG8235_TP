@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "SDTPickupFeedbackComponent.h"
 #include "CoreMinimal.h"
 #include "Engine/StaticMeshActor.h"
 #include "SDTCollectible.generated.h"
+
 
 /**
  * 
@@ -22,6 +24,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
     float m_CollectCooldownDuration = 10.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Feedback")
+    USDTPickupFeedbackComponent* m_FeedbackComponent;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
         bool isMoveable = false;
