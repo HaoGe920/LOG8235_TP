@@ -113,19 +113,38 @@ void ASDTAIController::Tick(float deltaTime)
         FVector rayStart = pawn->GetActorLocation();
         FVector rayEnd = collectibleHit.GetActor()->GetActorLocation();
 
-        FCollisionQueryParams pathQueryParams;
-        pathQueryParams.AddIgnoredActor(pawn);
-        pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
+        float heightDifference = FMath::Abs(rayEnd.Z - rayStart.Z);
 
-        FHitResult pathHit;
-        bool pathBlocked = GetWorld()->LineTraceSingleByChannel(
-            pathHit, rayStart, rayEnd, ECC_Visibility, pathQueryParams
-        );
-
-        if (!pathBlocked)
+        if (heightDifference < m_maxPickupHeightDifference)
         {
-            hasPickupTarget = true;
-            pickupDirection = (rayEnd - rayStart).GetSafeNormal();
+            // On ne considère que le plan horizontal pour la direction et la vérification.
+            FVector flatStart = FVector(rayStart.X, rayStart.Y, rayStart.Z);
+            FVector flatEnd = FVector(rayEnd.X, rayEnd.Y, rayStart.Z); 
+
+            UCapsuleComponent* pathCapsule = pawn->FindComponentByClass<UCapsuleComponent>();
+
+            if (pathCapsule)
+            {
+                float pathCapsuleRadius = pathCapsule->GetScaledCapsuleRadius() * m_sweepScale;
+                float pathCapsuleHalfHeight = pathCapsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
+
+                FCollisionShape pathCollisionShape = FCollisionShape::MakeCapsule(pathCapsuleRadius, pathCapsuleHalfHeight);
+
+                FCollisionQueryParams pathQueryParams;
+                pathQueryParams.AddIgnoredActor(pawn);
+                pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
+
+                FHitResult pathHit;
+                bool pathBlocked = GetWorld()->SweepSingleByChannel(
+                    pathHit, flatStart, flatEnd, FQuat::Identity, ECC_Visibility, pathCollisionShape, pathQueryParams
+                );
+
+                if (!pathBlocked)
+                {
+                    hasPickupTarget = true;
+                    pickupDirection = (flatEnd - flatStart).GetSafeNormal();
+                }
+            }
         }
     }
 
@@ -442,14 +461,26 @@ bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
     FVector start = pawn->GetActorLocation();
     FVector end = start + direction * m_pickupDetectionDistance;
 
-    FCollisionShape collisionShape = FCollisionShape::MakeCapsule(capsuleRadius, capsuleHalfHeight);
+    FCollisionShape collisionShape = FCollisionShape::MakeCapsule(m_pickupDetectionWidth, capsuleHalfHeight);
     FCollisionQueryParams queryParams;
     queryParams.AddIgnoredActor(pawn);
 
     TArray<FHitResult> hits;
     GetWorld()->SweepMultiByChannel(hits, start, end, FQuat::Identity, ECC_Visibility, collisionShape, queryParams);
 
-    DrawDebugLine(GetWorld(), start, end, FColor::Magenta, false, 2.0f, 0, 5.0f);
+    //DrawDebugLine(GetWorld(), start, end, FColor::Magenta, false, 2.0f, 0, 5.0f);
+    DrawDebugCapsule(
+        GetWorld(),
+        end,                    // position de la capsule (au bout de la sonde)
+        capsuleHalfHeight,      // même hauteur que le corps réel
+        m_pickupDetectionWidth, // notre largeur de détection élargie
+        FQuat::Identity,
+        FColor::Magenta,
+        false,
+        2.0f,
+        0,
+        1.0f
+    );
 
     for (const FHitResult& hit : hits)
     {
