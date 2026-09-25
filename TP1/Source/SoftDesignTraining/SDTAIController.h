@@ -29,8 +29,13 @@ protected:
     // Wall detection
     float const m_wallDetectionDistance = 120.0f;
     float const m_sideDetectionDistance = 150.0f;
+
+    // Pickup detection
+    // Distance de détection du pickup
     float const m_pickupDetectionDistance = 1000.0f;
+    // Largeur de la capsule de détection du pickup
     float const m_pickupDetectionWidth = 150.0f;
+
     float const m_sweepScale = 0.95f;
 
 
@@ -41,6 +46,7 @@ protected:
 
     // Rotation
     float const m_turnSpeed = 180.0f;
+    float const m_pickupTurnSpeed = 360.0f;
 
 
 

@@ -104,6 +104,7 @@ void ASDTAIController::Tick(float deltaTime)
         }
     }
 
+    // PICKUP DETECTION
     bool hasPickupTarget = false;
     FVector pickupDirection = FVector::ZeroVector;
 
@@ -113,6 +114,7 @@ void ASDTAIController::Tick(float deltaTime)
         FVector rayStart = pawn->GetActorLocation();
         FVector rayEnd = collectibleHit.GetActor()->GetActorLocation();
 
+        //Vérification si le pickup est accessible
         UCapsuleComponent* pathCapsule = pawn->FindComponentByClass<UCapsuleComponent>();
 
         if (pathCapsule)
@@ -126,11 +128,13 @@ void ASDTAIController::Tick(float deltaTime)
             pathQueryParams.AddIgnoredActor(pawn);
             pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
 
+            // Vérification si le chemin est bloqué
             FHitResult pathHit;
             bool pathBlocked = GetWorld()->SweepSingleByChannel(
                 pathHit, rayStart, rayEnd, FQuat::Identity, ECC_Visibility, pathCollisionShape, pathQueryParams
             );
-
+        
+            // Si le chemin est libre, on peut aller vers le pickup
             if (!pathBlocked)
             {
                 hasPickupTarget = true;
@@ -182,14 +186,33 @@ void ASDTAIController::Tick(float deltaTime)
         m_velocity = newDirection * newSpeed;
 
         float alignment = FVector::DotProduct(newDirection, m_avoidanceDirection);
-        if (alignment > 0.9999f)
+        if (alignment > 0.95f)
         {
             m_isAvoidingWall = false;
         }
     }
     else if (hasPickupTarget)
     {
-        m_velocity += pickupDirection * m_maxAcceleration * deltaTime;
+        FVector currentDirection = m_velocity.IsNearlyZero() ? FVector::ForwardVector : m_velocity.GetSafeNormal();
+    
+        FQuat currentRotation = currentDirection.ToOrientationQuat();
+        FQuat targetRotation = pickupDirection.ToOrientationQuat();
+    
+        float angleDifference = currentRotation.AngularDistance(targetRotation);
+        float maxTurnThisFrame = FMath::DegreesToRadians(m_pickupTurnSpeed) * deltaTime;
+    
+        float alpha = (angleDifference > KINDA_SMALL_NUMBER)
+            ? FMath::Clamp(maxTurnThisFrame / angleDifference, 0.0f, 1.0f)
+            : 1.0f;
+    
+        // On oriente progressivement le cap vers le pickup
+        FQuat newRotation = FQuat::Slerp(currentRotation, targetRotation, alpha);
+        FVector newDirection = newRotation.GetForwardVector();
+    
+        float currentSpeed = m_velocity.Size();
+        float newSpeed = FMath::Min(currentSpeed + m_maxAcceleration * deltaTime, m_maxSpeed);
+    
+        m_velocity = newDirection * newSpeed;
     }
     else
     {
@@ -312,7 +335,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
     FColor debugColor =
         hasHit ? FColor::Red : FColor::Green;
 
-    /*DrawDebugLine(
+    DrawDebugLine(
         GetWorld(),
         start,
         end,
@@ -334,7 +357,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
         0.0f,
         0,
         1.0f
-    );*/
+    );
 
     if (hasHit)
     {
@@ -383,7 +406,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
     FColor deathFloorDebugColor =
         hasHitDeathFloor ? FColor::Red : FColor::Green;
 
-    /*DrawDebugLine(
+    DrawDebugLine(
         GetWorld(),
         deathFloorStart,
         deathFloorEnd,
@@ -418,7 +441,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
         0.0f,
         0,
         2.0f
-    );*/
+    );
 
     for (const FHitResult& hit : deathFloorHits)
     {
@@ -462,9 +485,9 @@ bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
     //DrawDebugLine(GetWorld(), start, end, FColor::Magenta, false, 2.0f, 0, 5.0f);
     /*DrawDebugCapsule(
         GetWorld(),
-        end,                    // position de la capsule (au bout de la sonde)
-        capsuleHalfHeight,      // même hauteur que le corps réel
-        m_pickupDetectionWidth, // notre largeur de détection élargie
+        end,                    
+        capsuleHalfHeight,      
+        m_pickupDetectionWidth, 
         FQuat::Identity,
         FColor::Magenta,
         false,
@@ -473,6 +496,7 @@ bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
         1.0f
     );*/
 
+    // On ignore tout ce qui n'est pas un ASDTCollectible et qui n'est pas en cooldown
     for (const FHitResult& hit : hits)
     {
         ASDTCollectible* collectible = Cast<ASDTCollectible>(hit.GetActor());

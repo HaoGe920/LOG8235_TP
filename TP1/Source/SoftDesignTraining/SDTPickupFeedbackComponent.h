@@ -15,11 +15,13 @@ class SOFTDESIGNTRAINING_API USDTPickupFeedbackComponent : public UActorComponen
 public:
     USDTPickupFeedbackComponent();
 
+    // Assignable dans le menu Détails, sans recompiler
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
     USoundBase* m_CollectSound;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
     UParticleSystem* m_CollectEffect;
 
+    // Joue le son et l'effet assignés
     void PlayFeedback();
 };

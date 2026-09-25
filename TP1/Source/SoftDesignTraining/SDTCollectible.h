@@ -25,6 +25,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
     float m_CollectCooldownDuration = 10.f;
 
+    //responsable du son et de l'effet visuel joués à la collecte du pickup
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Feedback")
     USDTPickupFeedbackComponent* m_FeedbackComponent;
 
