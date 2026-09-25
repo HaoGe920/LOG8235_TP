@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "SDTCollectible.h"
 
 #include "SDTAIController.generated.h"
+
 
 /**
  * 
@@ -27,6 +29,7 @@ protected:
     // Wall detection
     float const m_wallDetectionDistance = 120.0f;
     float const m_sideDetectionDistance = 150.0f;
+    float const m_pickupDetectionDistance = 1000.0f;
     float const m_sweepScale = 0.95f;
 
 
@@ -38,9 +41,12 @@ protected:
     // Rotation
     float const m_turnSpeed = 180.0f;
 
+
+
     // Helper functions
     bool DetectWall(FHitResult& hitResult);
     bool IsDirectionBlocked(const FVector& direction, float detectionDistance);
     bool SweepDirection(const FVector& direction, float detectionDistance, FHitResult& hitResult);
+    bool DetectCollectible(FHitResult& hitResult);
 
 };

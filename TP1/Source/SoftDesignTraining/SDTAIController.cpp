@@ -1,5 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
+#include "SDTUtils.h"   
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
 
@@ -104,6 +104,31 @@ void ASDTAIController::Tick(float deltaTime)
         }
     }
 
+    bool hasPickupTarget = false;
+    FVector pickupDirection = FVector::ZeroVector;
+
+    FHitResult collectibleHit;
+    if (DetectCollectible(collectibleHit))
+    {
+        FVector rayStart = pawn->GetActorLocation();
+        FVector rayEnd = collectibleHit.GetActor()->GetActorLocation();
+
+        FCollisionQueryParams pathQueryParams;
+        pathQueryParams.AddIgnoredActor(pawn);
+        pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
+
+        FHitResult pathHit;
+        bool pathBlocked = GetWorld()->LineTraceSingleByChannel(
+            pathHit, rayStart, rayEnd, ECC_Visibility, pathQueryParams
+        );
+
+        if (!pathBlocked)
+        {
+            hasPickupTarget = true;
+            pickupDirection = (rayEnd - rayStart).GetSafeNormal();
+        }
+    }
+
     // WALL AVOIDANCE
     if (m_isAvoidingWall)
     {
@@ -151,6 +176,10 @@ void ASDTAIController::Tick(float deltaTime)
         {
             m_isAvoidingWall = false;
         }
+    }
+    else if (hasPickupTarget)
+    {
+        m_velocity += pickupDirection * m_maxAcceleration * deltaTime;
     }
     else
     {
@@ -273,7 +302,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
     FColor debugColor =
         hasHit ? FColor::Red : FColor::Green;
 
-    DrawDebugLine(
+    /*DrawDebugLine(
         GetWorld(),
         start,
         end,
@@ -295,7 +324,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
         0.0f,
         0,
         1.0f
-    );
+    );*/
 
     if (hasHit)
     {
@@ -344,7 +373,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
     FColor deathFloorDebugColor =
         hasHitDeathFloor ? FColor::Red : FColor::Green;
 
-    DrawDebugLine(
+    /*DrawDebugLine(
         GetWorld(),
         deathFloorStart,
         deathFloorEnd,
@@ -379,7 +408,7 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
         0.0f,
         0,
         2.0f
-    );
+    );*/
 
     for (const FHitResult& hit : deathFloorHits)
     {
@@ -397,6 +426,43 @@ bool ASDTAIController::SweepDirection(const FVector& direction, float detectionD
     return false;
 }
 
+bool ASDTAIController::DetectCollectible(FHitResult& hitResult)
+{
+    APawn* pawn = GetPawn();
+    if (!pawn) return false;
+
+    FVector direction = m_velocity.IsNearlyZero() ? FVector::ForwardVector : m_velocity.GetSafeNormal();
+
+    UCapsuleComponent* capsule = pawn->FindComponentByClass<UCapsuleComponent>();
+    if (!capsule) return false;
+
+    float capsuleRadius = capsule->GetScaledCapsuleRadius() * m_sweepScale;
+    float capsuleHalfHeight = capsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
+
+    FVector start = pawn->GetActorLocation();
+    FVector end = start + direction * m_pickupDetectionDistance;
+
+    FCollisionShape collisionShape = FCollisionShape::MakeCapsule(capsuleRadius, capsuleHalfHeight);
+    FCollisionQueryParams queryParams;
+    queryParams.AddIgnoredActor(pawn);
+
+    TArray<FHitResult> hits;
+    GetWorld()->SweepMultiByChannel(hits, start, end, FQuat::Identity, ECC_Visibility, collisionShape, queryParams);
+
+    DrawDebugLine(GetWorld(), start, end, FColor::Magenta, false, 2.0f, 0, 5.0f);
+
+    for (const FHitResult& hit : hits)
+    {
+        ASDTCollectible* collectible = Cast<ASDTCollectible>(hit.GetActor());
+        if (collectible && !collectible->IsOnCooldown())
+        {
+            hitResult = hit;
+            return true;
+        }
+    }
+
+    return false;
+}
 
 
 
