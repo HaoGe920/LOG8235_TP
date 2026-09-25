@@ -113,37 +113,28 @@ void ASDTAIController::Tick(float deltaTime)
         FVector rayStart = pawn->GetActorLocation();
         FVector rayEnd = collectibleHit.GetActor()->GetActorLocation();
 
-        float heightDifference = FMath::Abs(rayEnd.Z - rayStart.Z);
+        UCapsuleComponent* pathCapsule = pawn->FindComponentByClass<UCapsuleComponent>();
 
-        if (heightDifference < m_maxPickupHeightDifference)
+        if (pathCapsule)
         {
-            // On ne considère que le plan horizontal pour la direction et la vérification.
-            FVector flatStart = FVector(rayStart.X, rayStart.Y, rayStart.Z);
-            FVector flatEnd = FVector(rayEnd.X, rayEnd.Y, rayStart.Z); 
+            float pathCapsuleRadius = pathCapsule->GetScaledCapsuleRadius() * m_sweepScale;
+            float pathCapsuleHalfHeight = pathCapsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
 
-            UCapsuleComponent* pathCapsule = pawn->FindComponentByClass<UCapsuleComponent>();
+            FCollisionShape pathCollisionShape = FCollisionShape::MakeCapsule(pathCapsuleRadius, pathCapsuleHalfHeight);
 
-            if (pathCapsule)
+            FCollisionQueryParams pathQueryParams;
+            pathQueryParams.AddIgnoredActor(pawn);
+            pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
+
+            FHitResult pathHit;
+            bool pathBlocked = GetWorld()->SweepSingleByChannel(
+                pathHit, rayStart, rayEnd, FQuat::Identity, ECC_Visibility, pathCollisionShape, pathQueryParams
+            );
+
+            if (!pathBlocked)
             {
-                float pathCapsuleRadius = pathCapsule->GetScaledCapsuleRadius() * m_sweepScale;
-                float pathCapsuleHalfHeight = pathCapsule->GetScaledCapsuleHalfHeight() * m_sweepScale;
-
-                FCollisionShape pathCollisionShape = FCollisionShape::MakeCapsule(pathCapsuleRadius, pathCapsuleHalfHeight);
-
-                FCollisionQueryParams pathQueryParams;
-                pathQueryParams.AddIgnoredActor(pawn);
-                pathQueryParams.AddIgnoredActor(collectibleHit.GetActor());
-
-                FHitResult pathHit;
-                bool pathBlocked = GetWorld()->SweepSingleByChannel(
-                    pathHit, flatStart, flatEnd, FQuat::Identity, ECC_Visibility, pathCollisionShape, pathQueryParams
-                );
-
-                if (!pathBlocked)
-                {
-                    hasPickupTarget = true;
-                    pickupDirection = (flatEnd - flatStart).GetSafeNormal();
-                }
+                hasPickupTarget = true;
+                pickupDirection = (rayEnd - rayStart).GetSafeNormal();
             }
         }
     }
