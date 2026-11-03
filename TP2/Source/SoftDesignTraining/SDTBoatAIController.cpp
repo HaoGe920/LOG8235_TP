@@ -29,6 +29,7 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 			if (actor != nullptr)
 			{
 				// TODO : Agents wants to move towards actor
+<<<<<<< HEAD
 				EPathFollowingRequestResult::Type result =	MoveToActor(actor, 75.f);
 
 				if (result == EPathFollowingRequestResult::RequestSuccessful)
@@ -37,6 +38,10 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 					m_BoatState = BoatState::GO_TO_START_BRIDGE;
 				}
 
+=======
+
+				m_BoatState = BoatState::GO_TO_START_BRIDGE;
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 			}
 
 			break;
@@ -71,6 +76,7 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 				ASDTBoatOperator* boatOperator = Cast<ASDTBoatOperator>(actor);
 				if (boatOperator->IsAvailable())
 				{
+<<<<<<< HEAD
 					EPathFollowingRequestResult::Type result =
 						MoveToLocation(boatOperator->GetDropLocation(), 75.f);
 
@@ -84,6 +90,14 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 						m_ReachedTarget = false;
 					}
 					
+=======
+					boatOperator->Reserve(this);
+
+					// TODO : we want to move the agent towards the DropLocation of the boatOperator 
+					// Check ASDTBoatOperator::GetDropLocation to get the location.
+					// Note that m_ReachedTarget should be set to FALSE if the move is valid!
+
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 					break;
 				}
 			}
@@ -117,10 +131,13 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 				if (actor != nullptr)
 				{
 					// TODO : Agents wants to move towards actor
+<<<<<<< HEAD
 					EPathFollowingRequestResult::Type result = MoveToActor(actor, 75.f);
 
 					if (result == EPathFollowingRequestResult::RequestSuccessful)
 						m_ReachedTarget = false;
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 				}
 			}
 
@@ -151,10 +168,13 @@ void ASDTBoatAIController::NotifyUnloadComplete()
 	if (actor != nullptr)
 	{
 		// TODO : Agents wants to move towards actor
+<<<<<<< HEAD
 		EPathFollowingRequestResult::Type result = MoveToActor(actor, 75.f);
 
 		if (result == EPathFollowingRequestResult::RequestSuccessful)
 			m_ReachedTarget = false;
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 	}
 }
 

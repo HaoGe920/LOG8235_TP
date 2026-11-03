@@ -12,12 +12,16 @@
 
 USDTPathFollowingComponent::USDTPathFollowingComponent(const FObjectInitializer& ObjectInitializer)
 {
+<<<<<<< HEAD
     static ConstructorHelpers::FObjectFinder<UCurveFloat> curveAsset(TEXT("/Game/Blueprint/JumpCurve.JumpCurve"));
 
     if (curveAsset.Succeeded())
     {
         jumpCurve = curveAsset.Object;
     }
+=======
+
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 }
 
 /**
@@ -33,6 +37,7 @@ void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
     if (SDTUtils::HasJumpFlag(segmentStart))
     {
         // Update jump along path / nav link proxy
+<<<<<<< HEAD
         if (!isJumping) return;
 
         AController* controller = Cast<AController>(GetOwner());
@@ -84,10 +89,13 @@ void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
 
         if (jumProgress >= 1.f)
             FinishJump();
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
     }
     else
     {
         // Update navigation along path (move along)
+<<<<<<< HEAD
         AController* controller = Cast<AController>(GetOwner());
         ACharacter* character = Cast<ACharacter>(controller->GetPawn());
         UCharacterMovementComponent* movement = character->GetCharacterMovement();
@@ -147,6 +155,8 @@ void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
         {
             Super::FollowPathSegment(DeltaTime);
         }
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
     }
 }
 
@@ -158,16 +168,21 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 {
     Super::SetMoveSegment(segmentStartIndex);
 
+<<<<<<< HEAD
     if (!Path.IsValid()) return;
 
     const TArray<FNavPathPoint>& points = Path->GetPathPoints();
     if (!points.IsValidIndex(MoveSegmentStartIndex) || !points.IsValidIndex(MoveSegmentEndIndex)) return;
+=======
+    const TArray<FNavPathPoint>& points = Path->GetPathPoints();
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 
     const FNavPathPoint& segmentStart = points[MoveSegmentStartIndex];
 
     if (SDTUtils::HasJumpFlag(segmentStart) && FNavMeshNodeFlags(segmentStart.Flags).IsNavLink())
     {
         // Handle starting jump
+<<<<<<< HEAD
         if (isJumping)  return;
 
         AController* controller = Cast<AController>(GetOwner());
@@ -196,10 +211,13 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 
         previousMovementMode = movement->MovementMode;
         movement->StopMovementKeepPathing();
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
     }
     else
     {
         // Handle normal segments
+<<<<<<< HEAD
         FinishJump();
         approachProgress = 0.f;
     }
@@ -227,3 +245,8 @@ void USDTPathFollowingComponent::OnPathFinished(const FPathFollowingResult& Resu
     FinishJump();
     Super::OnPathFinished(Result);
 }
+=======
+    }
+}
+
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65

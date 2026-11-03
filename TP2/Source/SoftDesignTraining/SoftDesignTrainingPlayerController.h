@@ -16,7 +16,10 @@ public:
 	ASoftDesignTrainingPlayerController();
 
     void BeginPlay() override;
+<<<<<<< HEAD
     virtual void Tick(float deltaTime) override;
+=======
+>>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 
 protected:
 
