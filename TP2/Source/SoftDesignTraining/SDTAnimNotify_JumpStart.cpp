@@ -4,15 +4,11 @@
 #include "SoftDesignTraining.h"
 #include "SDTAIController.h"
 #include "SoftDesignTrainingCharacter.h"
-<<<<<<< HEAD
 #include "SDTPathFollowingComponent.h"
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 
 void USDTAnimNotify_JumpStart::Notify(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, const FAnimNotifyEventReference& EventReference)
 {
     //Notify that the NPC has launched
-<<<<<<< HEAD
     Super::Notify(MeshComp, Animation, EventReference);
 
     UE_LOG(LogTemp, Warning,
@@ -29,6 +25,4 @@ void USDTAnimNotify_JumpStart::Notify(USkeletalMeshComponent * MeshComp, UAnimSe
             character->GetCharacterMovement() ->SetMovementMode(MOVE_Flying);
         }
     }
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 }

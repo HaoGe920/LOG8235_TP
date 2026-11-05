@@ -12,16 +12,12 @@
 
 ASoftDesignTrainingPlayerController::ASoftDesignTrainingPlayerController()
 {
-<<<<<<< HEAD
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.bStartWithTickEnabled = true;
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
     // Make a path following component
     m_PathFollowingComponent = CreateDefaultSubobject<USDTPathFollowingComponent>(TEXT("PathFollowingComponent"));
 }
 
-<<<<<<< HEAD
 void ASoftDesignTrainingPlayerController::Tick(float deltaTime)
 {
     Super::Tick(deltaTime);
@@ -55,8 +51,6 @@ void ASoftDesignTrainingPlayerController::Tick(float deltaTime)
     }
 }
 
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 void ASoftDesignTrainingPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
@@ -127,7 +121,6 @@ void ASoftDesignTrainingPlayerController::MoveCharacter()
     // TODO : find the position of the mouse in the world 
     // And move the agent to this position IF possible
     // Validate you can move through m_CanMoveCharacter
-<<<<<<< HEAD
 
     // Find the position under the mouse cursor
     FHitResult hitResult;
@@ -141,8 +134,6 @@ void ASoftDesignTrainingPlayerController::MoveCharacter()
 
     // Move the character to the clicked position
     UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, hitResult.ImpactPoint);
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 }
 
 void ASoftDesignTrainingPlayerController::Activate()

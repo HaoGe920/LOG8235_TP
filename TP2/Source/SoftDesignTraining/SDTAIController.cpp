@@ -40,7 +40,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             if (actor != nullptr)
             {
                 // TODO : Agents wants to move towards actor
-<<<<<<< HEAD
                 UE_LOG(LogTemp, Warning,
                     TEXT("Agent %s - Target: %s - Position: %s"),
                     *GetNameSafe(GetPawn()),
@@ -58,10 +57,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
                 {
                     m_PedestrianState = PedestrianState::WAIT_AT_BRIDGE;
                 }
-=======
-
-                m_PedestrianState = PedestrianState::GO_TO_BRIDGE;
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
             }
             break;
         }
@@ -93,7 +88,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             if (actor != nullptr)
             {
                 // TODO : Agents wants to move towards actor
-<<<<<<< HEAD
                 EPathFollowingRequestResult::Type result = MoveToActor(actor, 75.f);
 
                 if (result == EPathFollowingRequestResult::RequestSuccessful)
@@ -104,8 +98,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
                 {
                     m_PedestrianState = PedestrianState::DESPAWN;
                 }
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
             }
             
             break;
@@ -154,7 +146,6 @@ void ASDTAIController::ShowNavigationPath()
     // Use the UPathFollowingComponent of the AIController to get the path
     // This function is called while m_ReachedTarget is false 
     // Check void ASDTBaseAIController::Tick for how it works.
-<<<<<<< HEAD
     UPathFollowingComponent* pathFollowing = GetPathFollowingComponent();
 
     if (pathFollowing == nullptr)
@@ -184,8 +175,6 @@ void ASDTAIController::ShowNavigationPath()
             GetWorld(), end, 12.f, 8,
             FColor::Green, false, 0.f);
     }
-=======
->>>>>>> ada6483b550039c10135d5416a93ce7a164b7a65
 }
 
 void ASDTAIController::AIStateInterrupted()
