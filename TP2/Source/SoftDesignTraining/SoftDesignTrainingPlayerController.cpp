@@ -131,6 +131,9 @@ void ASoftDesignTrainingPlayerController::MoveCharacter()
     // Check if the player is allowed to move
     if (!m_CanMoveCharacter || !GetPawn())
         return;
+    // Ne pas interrompre un saut en cours
+    if (m_PathFollowingComponent->isJumping)
+        return;
 
     // Move the character to the clicked position
     UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, hitResult.ImpactPoint);
