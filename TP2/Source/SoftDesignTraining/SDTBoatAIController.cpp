@@ -164,6 +164,35 @@ void ASDTBoatAIController::ShowNavigationPath()
 	// Use the UPathFollowingComponent of the AIController to get the path
 	// This function is called while m_ReachedTarget is false 
 	// Check void ASDTBaseAIController::Tick for how it works.
+	UPathFollowingComponent* pathFollowing = GetPathFollowingComponent();
+
+	if (pathFollowing == nullptr)
+		return;
+
+	const FNavPathSharedPtr path = pathFollowing->GetPath();
+
+	if (!path.IsValid())
+		return;
+
+	const TArray<FNavPathPoint>& points = path->GetPathPoints();
+
+	for (int32 i = 1; i < points.Num(); ++i)
+	{
+		FVector start = points[i - 1].Location;
+		FVector end = points[i].Location;
+
+		// Raise the debug path slightly above the water so it's visible
+		start.Z += 25.f;
+		end.Z += 25.f;
+
+		DrawDebugLine(
+			GetWorld(), start, end,
+			FColor::Green, false, 0.f, 0, 3.f);
+
+		DrawDebugSphere(
+			GetWorld(), end, 12.f, 8,
+			FColor::Green, false, 0.f);
+	}
 }
 
 BoatState ASDTBoatAIController::GetBoatState()
