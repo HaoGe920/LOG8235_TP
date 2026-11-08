@@ -187,11 +187,11 @@ void ASDTBoatAIController::ShowNavigationPath()
 
 		DrawDebugLine(
 			GetWorld(), start, end,
-			FColor::Green, false, 0.f, 0, 3.f);
+			FColor::Cyan, false, 0.f, 0, 3.f);
 
 		DrawDebugSphere(
 			GetWorld(), end, 12.f, 8,
-			FColor::Green, false, 0.f);
+			FColor::Cyan, false, 0.f);
 	}
 }
 

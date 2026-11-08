@@ -35,4 +35,11 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawner")
 	FString m_TagToLookFor;
+
+	// 0 = unlimited, otherwise maximum living agents per spawner
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner",meta = (ClampMin = "0"))
+	int32 m_MaxAlive = 0;
+
+	// Weak references: do not prevent destroyed agents from being collected
+	TArray<TWeakObjectPtr<APawn>> m_SpawnedPawns;
 };

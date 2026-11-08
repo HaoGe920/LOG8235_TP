@@ -21,6 +21,7 @@ public:
     virtual void FollowPathSegment(float deltaTime) override;
     virtual void SetMoveSegment(int32 segmentStartIndex) override;
     virtual void OnPathFinished(const FPathFollowingResult& Result) override;
+    virtual bool HasReachedCurrentTarget(const FVector& CurrentLocation) const override;
 
     UPROPERTY(BlueprintReadOnly)
     float jumProgress{ 0.f };

@@ -35,26 +35,49 @@ void ASDTAISpawner::Tick(float DeltaTime)
 	}
 }
 
+
 void ASDTAISpawner::Spawn()
 {
-	if (m_AIClassToSpawn != nullptr)
-	{
-		FActorSpawnParameters parameters;
-		parameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    // Remove references to destroyed agents
+    m_SpawnedPawns.RemoveAll(
+        [](const TWeakObjectPtr<APawn>& pawn)
+        {
+            return !pawn.IsValid();
+        });
 
-		APawn* npc = GetWorld()->SpawnActor<APawn>(m_AIClassToSpawn, GetActorLocation(), GetActorRotation(), parameters);
-		if (npc)
-		{
-			npc->SpawnDefaultController();
+    // Stop spawning while the population limit is reached
+    if (m_MaxAlive > 0 && m_SpawnedPawns.Num() >= m_MaxAlive)
+        return;
 
-			ASDTBaseAIController* controller = Cast<ASDTBaseAIController>(npc->GetController());
-			if (controller != nullptr)
-			{
-				controller->SetTagToLookFor(m_TagToLookFor);
-			}
-		}
-	}
+    if (m_AIClassToSpawn != nullptr)
+    {
+        FActorSpawnParameters parameters;
+        parameters.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-	m_CurrentCooldown = 0.f;
+        APawn* npc = GetWorld()->SpawnActor<APawn>(
+            m_AIClassToSpawn,
+            GetActorLocation(),
+            GetActorRotation(),
+            parameters);
+
+        if (npc)
+        {
+            m_SpawnedPawns.Add(npc);
+
+            npc->SpawnDefaultController();
+
+            ASDTBaseAIController* controller =
+                Cast<ASDTBaseAIController>(npc->GetController());
+
+            if (controller != nullptr)
+            {
+                controller->SetTagToLookFor(m_TagToLookFor);
+            }
+        }
+    }
+
+    m_CurrentCooldown = 0.f;
 }
+
 

@@ -85,69 +85,156 @@ void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
         if (jumProgress >= 1.f)
             FinishJump();
     }
+
     else
     {
-        // Update navigation along path (move along)
         AController* controller = Cast<AController>(GetOwner());
         ACharacter* character = Cast<ACharacter>(controller->GetPawn());
         UCharacterMovementComponent* movement = character->GetCharacterMovement();
-        
-        bool approachingJump = points.IsValidIndex(MoveSegmentEndIndex + 1) && SDTUtils::HasJumpFlag(segmentEnd);
 
-        bool leavingJump = MoveSegmentStartIndex > 0 && SDTUtils::HasJumpFlag(points[MoveSegmentStartIndex - 1]);
+        const bool approachingJump =
+            points.IsValidIndex(MoveSegmentEndIndex + 1) &&
+            SDTUtils::HasJumpFlag(segmentEnd);
 
-        if (approachingJump || leavingJump)
-        {
-            FVector A = segmentStart.Location;
-            FVector B = segmentEnd.Location;
+        const bool leavingJump =
+            MoveSegmentStartIndex > 0 &&
+            SDTUtils::HasJumpFlag(points[MoveSegmentStartIndex - 1]);
 
-            float length = FVector::Dist2D(A, B);
-            float controlRatio = 0.35f;
-
-            // Direction of the NavLink
-            FVector jumpDirection = approachingJump
-                ? (points[MoveSegmentEndIndex + 1].Location - B).GetSafeNormal2D()
-                : (A - points[MoveSegmentStartIndex - 1].Location).GetSafeNormal2D();
-
-            // Bezier control point
-            FVector P = approachingJump
-                ? B - jumpDirection * length * controlRatio
-                : A + jumpDirection * length * controlRatio;
-
-            // Quadratic Bezier
-            auto Bezier = [&](float t)
-                {
-                    float u = 1.f - t;
-                    return u * u * A + 2.f * u * t * P + t * t * B;
-                };
-
-            // Progression based on actual character speed
-            float speed = character->GetVelocity().Size2D();
-
-            approachProgress = FMath::Min(1.f,approachProgress + speed * DeltaTime / length);
-
-            float t = approachProgress;
-
-            // Bezier tangent
-            FVector tangent = (2.f * (1.f - t) * (P - A) + 2.f * t * (B - P)).GetSafeNormal2D();
-
-            // Lateral correction
-            FVector correction = Bezier(t) - character->GetActorLocation();
-            correction.Z = 0.f;
-
-            correction -= FVector::DotProduct(correction, tangent) * tangent;
-
-            float correctionRatio = 0.15f;
-
-            FVector direction = (tangent + correction / (length * correctionRatio)).GetSafeNormal2D();
-
-            movement->RequestDirectMove(direction * movement->GetMaxSpeed(), false);
-        }
-        else
+        if (!approachingJump && !leavingJump)
         {
             Super::FollowPathSegment(DeltaTime);
+            return;
         }
+
+        const FVector A = segmentStart.Location;
+        const FVector B = segmentEnd.Location;
+
+        const FVector pathDirection = (B - A).GetSafeNormal2D();
+        const FVector jumpDirection = approachingJump
+            ? (points[MoveSegmentEndIndex + 1].Location - B).GetSafeNormal2D()
+            : (A - points[MoveSegmentStartIndex - 1].Location).GetSafeNormal2D();
+
+        const float segmentLength = FVector::Dist2D(A, B);
+
+        const float anticipationTime = 1.2f;
+        const float curveLength = FMath::Min(
+            segmentLength, movement->GetMaxSpeed() * anticipationTime);
+
+        const float controlRatio = 0.35f;
+        const float correctionRatio = 0.15f;
+
+        // Local Bezier endpoints
+        const FVector curveStart = approachingJump
+            ? B - pathDirection * curveLength
+            : A;
+
+        const FVector curveEnd = approachingJump
+            ? B
+            : A + pathDirection * curveLength;
+
+        // Match the incoming and outgoing tangents
+        const FVector startDirection = approachingJump
+            ? pathDirection
+            : jumpDirection;
+
+        const FVector endDirection = approachingJump
+            ? jumpDirection
+            : pathDirection;
+
+        // Cubic Bezier control points
+        const FVector P1 =
+            curveStart + startDirection * curveLength * controlRatio;
+
+        const FVector P2 =
+            curveEnd - endDirection * curveLength * controlRatio;
+
+        const FVector position = character->GetActorLocation();
+
+        // Use the normal path outside the local Bezier
+        const float traveled = FVector::DotProduct(
+            position - curveStart, pathDirection);
+
+        if ((approachingJump && traveled < 0.f) ||
+            (leavingJump && traveled > curveLength))
+        {
+            Super::FollowPathSegment(DeltaTime);
+            return;
+        }
+
+        // Cubic Bezier evaluation
+        auto Bezier = [&](float t)
+            {
+                const float u = 1.f - t;
+
+                return
+                    u * u * u * curveStart +
+                    3.f * u * u * t * P1 +
+                    3.f * u * t * t * P2 +
+                    t * t * t * curveEnd;
+            };
+
+        // Find the closest position on the Bezier
+        constexpr int32 samples = 20;
+
+        float t = 0.f;
+        float bestDistance = BIG_NUMBER;
+
+        FVector previous = curveStart;
+
+        for (int32 i = 1; i <= samples; ++i)
+        {
+            const FVector current = Bezier(
+                static_cast<float>(i) / samples);
+
+            FVector edge = current - previous;
+            edge.Z = 0.f;
+
+            FVector offset = position - previous;
+            offset.Z = 0.f;
+
+            const float alpha = FMath::Clamp(
+                FVector::DotProduct(offset, edge) /
+                FMath::Max(edge.SizeSquared(), KINDA_SMALL_NUMBER),
+                0.f, 1.f);
+
+            const FVector closest = previous + edge * alpha;
+
+            const float distance = FVector::DistSquared2D(
+                position, closest);
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                t = (i - 1 + alpha) / samples;
+            }
+
+            previous = current;
+        }
+
+        if (approachingJump)
+            approachProgress = t;
+
+        // Cubic Bezier tangent
+        const float u = 1.f - t;
+
+        const FVector tangent = (
+            3.f * u * u * (P1 - curveStart) +
+            6.f * u * t * (P2 - P1) +
+            3.f * t * t * (curveEnd - P2)
+            ).GetSafeNormal2D();
+
+        // Correct the difference between character and curve
+        FVector correction = Bezier(t) - position;
+        correction.Z = 0.f;
+
+        const FVector direction = (
+            tangent + correction / (curveLength * correctionRatio)
+            ).GetSafeNormal2D();
+
+        movement->RequestDirectMove(
+            direction * movement->GetMaxSpeed(), false);
     }
+
 }
 
 /**
@@ -183,6 +270,21 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
             TEXT("NavLink START - ApproachProgress: %.2f - Alignment: %.2f"),
             approachProgress, alignment);
 
+        const FVector B = points[MoveSegmentStartIndex].Location;
+        const FVector C = points[MoveSegmentEndIndex].Location;
+
+        const FVector position = character->GetActorLocation();
+        const FVector direction = (C - B).GetSafeNormal2D();
+        const FVector offset = position - B;
+
+        const float lateralDistance =
+            FMath::Abs(FVector::CrossProduct(direction, offset).Z);
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("NAVLINK ENTRY - Distance2D: %.0f - Lateral: %.0f"),
+            FVector::Dist2D(position, B),
+            lateralDistance);
+
         // Initialize jump
         jumpStart = character->GetActorLocation();
         jumpEnd = points[MoveSegmentEndIndex].Location;
@@ -193,6 +295,14 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 
         // Temporarily disable walking and gravity
         UCharacterMovementComponent* movement = character->GetCharacterMovement();
+
+        float signedDistance = FVector::DotProduct(
+            character->GetActorLocation() - segmentStart.Location,
+            jumpDirection);
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("Signed distance from NavLink start: %.0f"),
+            signedDistance);
 
         previousMovementMode = movement->MovementMode;
         movement->StopMovementKeepPathing();
@@ -226,4 +336,44 @@ void USDTPathFollowingComponent::OnPathFinished(const FPathFollowingResult& Resu
 {
     FinishJump();
     Super::OnPathFinished(Result);
+}
+
+bool USDTPathFollowingComponent::HasReachedCurrentTarget(const FVector& CurrentLocation) const
+{
+    const TArray<FNavPathPoint>& points = Path->GetPathPoints();
+
+    // Special reach condition before a jump NavLink
+    if (points.IsValidIndex(MoveSegmentEndIndex + 1) &&
+        SDTUtils::HasJumpFlag(points[MoveSegmentEndIndex]))
+    {
+        const FVector B = points[MoveSegmentEndIndex].Location;
+        const FVector C = points[MoveSegmentEndIndex + 1].Location;
+
+        const FVector jumpDirection = (C - B).GetSafeNormal2D();
+
+        FVector offset = CurrentLocation - B;
+        offset.Z = 0.f;
+
+        // Distance to the NavLink entrance
+        const float distance = offset.Size2D();
+
+        // Signed distance to the entrance plane
+        const float forwardDistance =
+            FVector::DotProduct(offset, jumpDirection);
+
+        // Lateral distance from the NavLink axis
+        const float lateralDistance =
+            FMath::Abs(FVector::CrossProduct(jumpDirection, offset).Z);
+
+        const float reachRadius = 60.f;
+
+        // Reach B or cross its plane within the allowed zone
+        return distance <= reachRadius ||
+            (forwardDistance >= 0.f &&
+                forwardDistance <= reachRadius &&
+                lateralDistance <= reachRadius);
+    }
+
+    // Standard reach condition for other segments
+    return Super::HasReachedCurrentTarget(CurrentLocation);
 }
