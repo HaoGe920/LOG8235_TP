@@ -73,8 +73,9 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             ASDTBridge* bridge = Cast<ASDTBridge>(actor);
             
             // Once the bridge is down, we go through
-            if (bridge != nullptr && bridge->GetState() == EBridgeState::BRIDGE_DOWN)
+            if (bridge != nullptr && bridge->TryReserveForPedestrian(pawn))
             {
+                m_CrossingBridge = bridge;
                 m_PedestrianState = PedestrianState::GO_TO_DESPAWN;
             }
 
@@ -119,10 +120,21 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
     m_ReachedTarget = true;
 
-    // Safeguard
-    if (Result.Code == EPathFollowingResult::Aborted)
+    // Didn't arrive: stay in this state and retry from GoToBestTarget. A pedestrian
+    // retrying its crossing keeps its reservation, since it may be standing on the deck.
+    if (Result.Code != EPathFollowingResult::Success)
     {
+        if (m_PedestrianState == PedestrianState::GO_TO_BRIDGE)
+        {
+            m_PedestrianState = PedestrianState::SPAWNED; // this state issues the move
+        }
         return;
+    }
+
+    if (m_CrossingBridge.IsValid())
+    {
+        m_CrossingBridge->ReleaseReservation(GetPawn());
+        m_CrossingBridge = nullptr;
     }
 
     switch (m_PedestrianState)

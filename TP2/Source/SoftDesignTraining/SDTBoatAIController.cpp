@@ -9,6 +9,13 @@
 
 #include "SDTBoatOperator.h"
 
+namespace
+{
+	// Boats reach about 400 units ahead of their origin and this wait point is close to
+	// Bridge_0, so stop early enough to keep the bow out from under the deck.
+	const float StartWaitPointAcceptanceRadius = 400.f;
+}
+
 void ASDTBoatAIController::Tick(float deltaTime)
 {
 	Super::Tick(deltaTime);
@@ -29,12 +36,16 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 			if (actor != nullptr)
 			{
 				// TODO : Agents wants to move towards actor
-				EPathFollowingRequestResult::Type result =	MoveToActor(actor, 75.f);
+				EPathFollowingRequestResult::Type result =	MoveToActor(actor, StartWaitPointAcceptanceRadius);
 
 				if (result == EPathFollowingRequestResult::RequestSuccessful)
 				{
 					m_ReachedTarget = false;
 					m_BoatState = BoatState::GO_TO_START_BRIDGE;
+				}
+				else if (result == EPathFollowingRequestResult::AlreadyAtGoal)
+				{
+					m_BoatState = BoatState::WAIT_AT_START_BRIDGE;
 				}
 
 			}
@@ -63,29 +74,62 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 		}
 		case BoatState::GO_TO_OPERATOR:
 		{
-			TArray<AActor*> foundActors;
-			UGameplayStatics::GetAllActorsOfClass(this, ASDTBoatOperator::StaticClass(), foundActors);
-
-			for (AActor* actor : foundActors)
+			// A boat retrying a failed move keeps the operator it already reserved
+			ASDTBoatOperator* boatOperator = m_ReservedOperator.Get();
+			if (boatOperator == nullptr)
 			{
-				ASDTBoatOperator* boatOperator = Cast<ASDTBoatOperator>(actor);
-				if (boatOperator->IsAvailable())
+				TArray<AActor*> foundActors;
+				UGameplayStatics::GetAllActorsOfClass(this, ASDTBoatOperator::StaticClass(), foundActors);
+
+				for (AActor* actor : foundActors)
 				{
-					EPathFollowingRequestResult::Type result =
-						MoveToLocation(boatOperator->GetDropLocation(), 75.f);
-
-					if (result == EPathFollowingRequestResult::RequestSuccessful)
+					ASDTBoatOperator* candidate = Cast<ASDTBoatOperator>(actor);
+					if (candidate->IsAvailable())
 					{
-						boatOperator->Reserve(this);
-
-						// TODO : we want to move the agent towards the DropLocation of the boatOperator 
-						// Check ASDTBoatOperator::GetDropLocation to get the location.
-						// Note that m_ReachedTarget should be set to FALSE if the move is valid!
-						m_ReachedTarget = false;
+						boatOperator = candidate;
+						break;
 					}
-					
-					break;
 				}
+			}
+
+			if (boatOperator == nullptr)
+			{
+				break;
+			}
+
+			// Reserve here rather than at the wait point: the boat may have been waiting
+			// for a free operator while the bridge came down.
+			ASDTBridge* bridge = Cast<ASDTBridge>(FindActorWithTag(TEXT("Bridge_0"), false));
+			if (bridge == nullptr || (!m_CrossingBridge.IsValid() && !bridge->TryReserveForBoat(pawn)))
+			{
+				break;
+			}
+
+			EPathFollowingRequestResult::Type result =
+				MoveToLocation(boatOperator->GetDropLocation(), 75.f);
+
+			if (result == EPathFollowingRequestResult::RequestSuccessful)
+			{
+				boatOperator->Reserve(this);
+				m_ReservedOperator = boatOperator;
+
+				// TODO : we want to move the agent towards the DropLocation of the boatOperator
+				// Check ASDTBoatOperator::GetDropLocation to get the location.
+				// Note that m_ReachedTarget should be set to FALSE if the move is valid!
+				m_ReachedTarget = false;
+				m_CrossingBridge = bridge;
+			}
+			else if (result == EPathFollowingRequestResult::AlreadyAtGoal)
+			{
+				boatOperator->Reserve(this);
+				bridge->ReleaseReservation(pawn);
+				m_CrossingBridge = nullptr;
+				m_BoatState = BoatState::WAIT_AT_OPERATOR;
+			}
+			else
+			{
+				bridge->ReleaseReservation(pawn);
+				m_CrossingBridge = nullptr;
 			}
 
 			break;
@@ -97,7 +141,8 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 		}
 		case BoatState::GO_TO_END_BRIDGE:
 		{
-			// Nothing to do
+			// Only reached with m_ReachedTarget set, meaning the last move didn't arrive
+			MoveToEndBridge();
 			break;
 		}
 		case BoatState::WAIT_AT_END_BRIDGE:
@@ -108,19 +153,33 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 			ASDTBridge* bridge = Cast<ASDTBridge>(actor);
 
 			// Once the bridge is down, we go through
-			if (bridge != nullptr && bridge->GetState() == EBridgeState::BRIDGE_UP)
+			if (bridge != nullptr && (m_CrossingBridge.IsValid() || bridge->TryReserveForBoat(pawn)))
 			{
-				m_BoatState = BoatState::GO_TO_DESPAWN;
-
 				tag = "WaitPoint_Water_2";
 				actor = FindActorWithTag(tag, false);
+				EPathFollowingRequestResult::Type result = EPathFollowingRequestResult::Failed;
 				if (actor != nullptr)
 				{
 					// TODO : Agents wants to move towards actor
-					EPathFollowingRequestResult::Type result = MoveToActor(actor, 75.f);
+					result = MoveToActor(actor, 75.f);
+				}
 
-					if (result == EPathFollowingRequestResult::RequestSuccessful)
-						m_ReachedTarget = false;
+				if (result == EPathFollowingRequestResult::RequestSuccessful)
+				{
+					m_BoatState = BoatState::GO_TO_DESPAWN;
+					m_ReachedTarget = false;
+					m_CrossingBridge = bridge;
+				}
+				else if (result == EPathFollowingRequestResult::AlreadyAtGoal)
+				{
+					bridge->ReleaseReservation(pawn);
+					m_CrossingBridge = nullptr;
+					m_BoatState = BoatState::DESPAWN;
+				}
+				else
+				{
+					bridge->ReleaseReservation(pawn);
+					m_CrossingBridge = nullptr;
 				}
 			}
 
@@ -145,7 +204,12 @@ void ASDTBoatAIController::GoToBestTarget(float deltaTime)
 void ASDTBoatAIController::NotifyUnloadComplete()
 {
 	m_BoatState = BoatState::GO_TO_END_BRIDGE;
-	
+	m_ReservedOperator = nullptr;
+	MoveToEndBridge();
+}
+
+void ASDTBoatAIController::MoveToEndBridge()
+{
 	FString tag("WaitPoint_End_Water");
 	AActor* actor = FindActorWithTag(tag, false);
 	if (actor != nullptr)
@@ -154,7 +218,13 @@ void ASDTBoatAIController::NotifyUnloadComplete()
 		EPathFollowingRequestResult::Type result = MoveToActor(actor, 75.f);
 
 		if (result == EPathFollowingRequestResult::RequestSuccessful)
+		{
 			m_ReachedTarget = false;
+		}
+		else if (result == EPathFollowingRequestResult::AlreadyAtGoal)
+		{
+			m_BoatState = BoatState::WAIT_AT_END_BRIDGE;
+		}
 	}
 }
 
@@ -212,6 +282,27 @@ void ASDTBoatAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFo
 	Super::OnMoveCompleted(RequestID, Result);
 
 	m_ReachedTarget = true;
+
+	// Didn't arrive: stay in this state and retry from GoToBestTarget, keeping any
+	// reservations. These two states don't issue their own move, so step back to the one that does.
+	if (Result.Code != EPathFollowingResult::Success)
+	{
+		if (m_BoatState == BoatState::GO_TO_START_BRIDGE)
+		{
+			m_BoatState = BoatState::SPAWNED;
+		}
+		else if (m_BoatState == BoatState::GO_TO_DESPAWN)
+		{
+			m_BoatState = BoatState::WAIT_AT_END_BRIDGE;
+		}
+		return;
+	}
+
+	if (m_CrossingBridge.IsValid())
+	{
+		m_CrossingBridge->ReleaseReservation(GetPawn());
+		m_CrossingBridge = nullptr;
+	}
 
 	switch (m_BoatState)
 	{

@@ -6,6 +6,9 @@
 #include "SDTBaseAIController.h"
 #include "SDTBoatAIController.generated.h"
 
+class ASDTBridge;
+class ASDTBoatOperator;
+
 enum class BoatState
 {
     SPAWNED,
@@ -39,6 +42,10 @@ public:
 private:
     virtual void GoToBestTarget(float deltaTime) override;
     virtual void ShowNavigationPath() override;
+    void MoveToEndBridge();
 
     BoatState m_BoatState{BoatState::SPAWNED};
+
+    TWeakObjectPtr<ASDTBridge> m_CrossingBridge;
+    TWeakObjectPtr<ASDTBoatOperator> m_ReservedOperator;
 };

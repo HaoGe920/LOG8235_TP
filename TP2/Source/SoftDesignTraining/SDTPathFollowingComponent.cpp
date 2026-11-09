@@ -306,6 +306,7 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 
         previousMovementMode = movement->MovementMode;
         movement->StopMovementKeepPathing();
+        movement->SetMovementMode(MOVE_Flying);
     }
     else
     {

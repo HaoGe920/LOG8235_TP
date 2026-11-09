@@ -10,6 +10,8 @@
 #include "SDTBoatOperator.h"
 #include "Engine/OverlapResult.h"
 
+#include "NavigationSystem.h"
+
 ASoftDesignTrainingPlayerController::ASoftDesignTrainingPlayerController()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -118,25 +120,42 @@ void ASoftDesignTrainingPlayerController::ZoomCamera(float axisValue)
 
 void ASoftDesignTrainingPlayerController::MoveCharacter()
 {
-    // TODO : find the position of the mouse in the world 
-    // And move the agent to this position IF possible
-    // Validate you can move through m_CanMoveCharacter
+
+    APawn* pawn = GetPawn();
+
+    // Check if the player is allowed to move. A new path mid-jump would cancel
+    // the jump and drop the character wherever it is.
+    if (!m_CanMoveCharacter || !pawn || m_PathFollowingComponent->isJumping)
+        return;
+
+    FVector rStart, rDir;
+    if (!DeprojectMousePositionToWorld(rStart, rDir))
+        return;
 
     // Find the position under the mouse cursor
     FHitResult hitResult;
 
+    FCollisionQueryParams params(TEXT("ClickTrace"), false, pawn); // ignore our own pawn
+    const FVector rayEnd = rStart + rDir * 100000.f;
+    if (!GetWorld()->LineTraceSingleByChannel(hitResult, rStart, rayEnd, ECC_Visibility, params))
+        return;
+
+    UNavigationSystemV1* navSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+    if (navSys == nullptr)
+        return;
+
+    const ANavigationData* navData =
+        navSys->GetNavDataForProps(pawn->GetNavAgentPropertiesRef(), pawn->GetNavAgentLocation());
+
     if (!GetHitResultUnderCursor(ECC_Visibility, true, hitResult))
         return;
 
-    // Check if the player is allowed to move
-    if (!m_CanMoveCharacter || !GetPawn())
-        return;
-    // Ne pas interrompre un saut en cours
-    if (m_PathFollowingComponent->isJumping)
+    FNavLocation projected;
+    const FVector extent(50.f, 50.f, 250.f);
+    if (!navSys->ProjectPointToNavigation(hitResult.ImpactPoint, projected, extent, navData))
         return;
 
-    // Move the character to the clicked position
-    UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, hitResult.ImpactPoint);
+    UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, projected.Location);
 }
 
 void ASoftDesignTrainingPlayerController::Activate()

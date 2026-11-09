@@ -6,6 +6,8 @@
 #include "SDTBaseAIController.h"
 #include "SDTAIController.generated.h"
 
+class ASDTBridge;
+
 enum class ActionPriority
 {
     FLEE,
@@ -44,4 +46,6 @@ private:
     virtual void ShowNavigationPath() override;
 
     PedestrianState m_PedestrianState{ PedestrianState::SPAWNED };
+
+    TWeakObjectPtr<ASDTBridge> m_CrossingBridge;
 };
